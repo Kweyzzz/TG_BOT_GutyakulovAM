@@ -1,0 +1,8 @@
+db_name: telegram_bot
+bot_db_user: bot_user
+bot_db_password: amal88824
+repl_user: repl_user
+repl_password: repl_password
+github_repo: "https://github.com/Kweyzzz/TG_BOT_GutyakulovAM.git"
+github_branch: "ansible"
+telegram_token: "8968847541:AAH4RIZfz9_960rC8xhSkInkuEsjm29EQXI"

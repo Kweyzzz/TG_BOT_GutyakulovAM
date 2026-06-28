@@ -1,0 +1,4 @@
+- name: Перезапустить бота
+  systemd:
+    name: tgbot
+    state: restarted

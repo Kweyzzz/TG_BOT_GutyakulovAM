@@ -1,0 +1,17 @@
+- name: Развернуть и настроить Master БД с репликацией
+  hosts: db_master
+  become: yes
+  roles:
+    - db_master
+
+- name: Развернуть и настроить Slave БД (реплику)
+  hosts: db_slave
+  become: yes
+  roles:
+    - db_slave
+
+- name: Развернуть и запустить Telegram-бота
+  hosts: bot_server
+  become: yes
+  roles:
+    - bot

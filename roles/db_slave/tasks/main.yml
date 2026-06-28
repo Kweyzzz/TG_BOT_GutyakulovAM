@@ -1,0 +1,59 @@
+- name: Обновить список пакетов
+  apt:
+    update_cache: yes
+
+- name: Установить PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+    state: present
+
+- name: Определить установленную версию PostgreSQL
+  shell: ls /etc/postgresql/ | head -n1
+  register: pg_version_result
+  changed_when: false
+
+- name: Сохранить версию PostgreSQL
+  set_fact:
+    pg_version: "{{ pg_version_result.stdout }}"
+
+- name: Проверить, является ли узел уже репликой
+  stat:
+    path: "/var/lib/postgresql/{{ pg_version }}/main/standby.signal"
+  register: standby_signal
+
+- name: Остановить PostgreSQL перед настройкой реплики
+  service:
+    name: postgresql
+    state: stopped
+  when: not standby_signal.stat.exists
+
+- name: Очистить директорию данных перед базовым бэкапом
+  file:
+    path: "/var/lib/postgresql/{{ pg_version }}/main"
+    state: absent
+  when: not standby_signal.stat.exists
+
+- name: Создать пустую директорию данных
+  file:
+    path: "/var/lib/postgresql/{{ pg_version }}/main"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: '0700'
+  when: not standby_signal.stat.exists
+
+- name: Выполнить pg_basebackup с мастера
+  become_user: postgres
+  command: >
+    pg_basebackup -h {{ hostvars[groups['db_master'][0]]['ansible_host'] | default(groups['db_master'][0]) }}
+    -p 5432 -U {{ repl_user }} -D /var/lib/postgresql/{{ pg_version }}/main -Fp -Xs -P -R
+  environment:
+    PGPASSWORD: "{{ repl_password }}"
+  when: not standby_signal.stat.exists
+
+- name: Запустить PostgreSQL в режиме реплики
+  service:
+    name: postgresql
+    state: started

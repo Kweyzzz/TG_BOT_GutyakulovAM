@@ -1,0 +1,8 @@
+[db_master]
+192.168.31.146 ansible_user=ansible ansible_password=amal88824 ansible_become_password=amal88824 ansible_python_interpreter=/usr/bin/python3
+
+[db_slave]
+192.168.31.152 ansible_user=ansible ansible_password=amal88824 ansible_become_password=amal88824 ansible_python_interpreter=/usr/bin/python3
+
+[bot_server]
+192.168.31.98 ansible_user=k8s ansible_password=amal88824 ansible_become_password=amal88824 ansible_python_interpreter=/usr/bin/python3

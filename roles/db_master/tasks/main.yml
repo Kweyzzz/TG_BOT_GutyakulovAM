@@ -1,0 +1,88 @@
+- name: Обновить список пакетов
+  apt:
+    update_cache: yes
+
+- name: Установить PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+    state: present
+
+- name: Определить установленную версию PostgreSQL
+  shell: ls /etc/postgresql/ | head -n1
+  register: pg_version_result
+  changed_when: false
+
+- name: Сохранить версию PostgreSQL
+  set_fact:
+    pg_version: "{{ pg_version_result.stdout }}"
+
+- name: Настроить параметры репликации в postgresql.conf
+  blockinfile:
+    path: "/etc/postgresql/{{ pg_version }}/main/postgresql.conf"
+    marker: "# {mark} ANSIBLE REPLICATION SETTINGS"
+    block: |
+      listen_addresses = '*'
+      wal_level = replica
+      max_wal_senders = 10
+      max_replication_slots = 10
+      hot_standby = on
+      log_replication_commands = on
+  notify: Перезапустить PostgreSQL
+
+- name: Разрешить подключения в pg_hba.conf
+  blockinfile:
+    path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
+    marker: "# {mark} ANSIBLE ACCESS RULES"
+    block: |
+      host replication {{ repl_user }} 0.0.0.0/0 scram-sha-256
+      host all all 0.0.0.0/0 scram-sha-256
+  notify: Перезапустить PostgreSQL
+
+- name: Применить изменения конфигурации немедленно
+  meta: flush_handlers
+
+- name: Проверить наличие пользователя репликации
+  become_user: postgres
+  command: psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='{{ repl_user }}'"
+  register: repl_user_check
+  changed_when: false
+
+- name: Создать пользователя репликации
+  become_user: postgres
+  command: psql -c "CREATE ROLE {{ repl_user }} WITH REPLICATION LOGIN PASSWORD '{{ repl_password }}';"
+  when: repl_user_check.stdout != "1"
+
+- name: Проверить наличие пользователя для бота
+  become_user: postgres
+  command: psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='{{ bot_db_user }}'"
+  register: bot_user_check
+  changed_when: false
+
+- name: Создать пользователя для бота
+  become_user: postgres
+  command: psql -c "CREATE USER {{ bot_db_user }} WITH PASSWORD '{{ bot_db_password }}';"
+  when: bot_user_check.stdout != "1"
+
+- name: Проверить наличие базы данных
+  become_user: postgres
+  command: psql -tAc "SELECT 1 FROM pg_database WHERE datname='{{ db_name }}'"
+  register: db_check
+  changed_when: false
+
+- name: Создать базу данных telegram_bot
+  become_user: postgres
+  command: psql -c "CREATE DATABASE {{ db_name }} OWNER postgres;"
+  when: db_check.stdout != "1"
+
+- name: Скопировать SQL-скрипт инициализации таблиц
+  template:
+    src: init.sql.j2
+    dest: /tmp/init.sql
+    owner: postgres
+    mode: '0644'
+
+- name: Выполнить SQL-скрипт инициализации таблиц и тестовых данных
+  become_user: postgres
+  command: psql -d {{ db_name }} -f /tmp/init.sql

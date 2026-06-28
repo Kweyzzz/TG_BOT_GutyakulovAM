@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS emails (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS phone_numbers (
+    id SERIAL PRIMARY KEY,
+    phone_number VARCHAR(50) NOT NULL
+);
+
+GRANT ALL PRIVILEGES ON TABLE emails, phone_numbers TO {{ bot_db_user }};
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {{ bot_db_user }};
+
+INSERT INTO emails (email)
+SELECT 'test@mail.com' WHERE NOT EXISTS (SELECT 1 FROM emails WHERE email = 'test@mail.com');
+
+INSERT INTO emails (email)
+SELECT 'amal@mail.ru' WHERE NOT EXISTS (SELECT 1 FROM emails WHERE email = 'amal@mail.ru');
+
+INSERT INTO phone_numbers (phone_number)
+SELECT '+79991234567' WHERE NOT EXISTS (SELECT 1 FROM phone_numbers WHERE phone_number = '+79991234567');
+
+INSERT INTO phone_numbers (phone_number)
+SELECT '8-932-334-22-41' WHERE NOT EXISTS (SELECT 1 FROM phone_numbers WHERE phone_number = '8-932-334-22-41');

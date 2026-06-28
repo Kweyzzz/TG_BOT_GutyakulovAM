@@ -1,0 +1,57 @@
+- name: Обновить список пакетов
+  apt:
+    update_cache: yes
+
+- name: Установить системные зависимости
+  apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+      - git
+    state: present
+
+- name: Удалить старую копию репозитория (если есть)
+  file:
+    path: /opt/tg_bot
+    state: absent
+
+- name: Склонировать репозиторий с кодом бота
+  git:
+    repo: "{{ github_repo }}"
+    dest: /opt/tg_bot
+    version: "{{ github_branch }}"
+    force: yes
+
+- name: Создать виртуальное окружение
+  command: python3 -m venv /opt/tg_bot/venv
+  args:
+    creates: /opt/tg_bot/venv
+
+- name: Установить зависимости из requirements.txt
+  pip:
+    requirements: /opt/tg_bot/bot/requirements.txt
+    virtualenv: /opt/tg_bot/venv
+
+- name: Создать файл .env для бота
+  template:
+    src: env.j2
+    dest: /opt/tg_bot/bot/.env
+    mode: '0600'
+
+- name: Создать systemd unit-файл для бота
+  template:
+    src: tgbot.service.j2
+    dest: /etc/systemd/system/tgbot.service
+    mode: '0644'
+  notify: Перезапустить бота
+
+- name: Применить изменения systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Включить и запустить сервис бота
+  systemd:
+    name: tgbot
+    enabled: yes
+    state: started
