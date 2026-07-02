@@ -194,7 +194,7 @@ async def get_phone_numbers(update, context):
         await update.message.reply_text(f"Ошибка при чтении из БД: {e}")
 
 
-async def get_repl_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def get_repl_logs(update, context):
     try:
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
