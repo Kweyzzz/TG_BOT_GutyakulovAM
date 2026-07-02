@@ -195,37 +195,27 @@ async def get_phone_numbers(update, context):
 
 
 async def get_repl_logs(update, context):
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
         client.connect(
             hostname=DB_REPL_HOST,
             port=int(DB_REPL_PORT),
             username=DB_REPL_USER,
             password=DB_REPL_PASSWORD
         )
-
-        command = "grep -i replication /var/log/postgresql/*.log | tail -20"
-
+        command = "grep -i replication /var/log/postgresql/*.log | tail -n 20"
         stdin, stdout, stderr = client.exec_command(command)
-
-        logs = stdout.read().decode()
-        error = stderr.read().decode()
-
+        output = stdout.read().decode('utf-8')
         client.close()
 
-        if error:
-            await update.message.reply_text(update, f"Ошибка:\n{error}")
-            return
-
-        if logs.strip():
-            await update.message.reply_text(update, logs)
-        else:
-            await update.message.reply_text(update, "Логи репликации не найдены.")
-
+        result = output if output.strip() else "Логи репликации не найдены."
+        for i in range(0, len(result), 4000):
+            await update.message.reply_text(result[i:i + 4000])
+        logger.info(f"Пользователь {update.effective_user.id} вызвал /get_repl_logs")
     except Exception as e:
-        await update.message.reply_text(update, f"Ошибка при получении логов репликации: {e}")
+        await update.message.reply_text(f"Ошибка при получении логов репликации: {e}")
+        logger.error(f"Ошибка получения логов репликации: {e}")
 
 async def cancel(update, context):
     await update.message.reply_text("Действие отменено.", reply_markup=ReplyKeyboardRemove())
