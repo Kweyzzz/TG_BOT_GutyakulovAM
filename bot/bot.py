@@ -216,16 +216,16 @@ async def get_repl_logs(update, context):
         client.close()
 
         if error:
-            await send_result(update, f"Ошибка:\n{error}")
+            await update.message.reply_text(update, f"Ошибка:\n{error}")
             return
 
         if logs.strip():
-            await send_result(update, logs)
+            await update.message.reply_text(update, logs)
         else:
-            await send_result(update, "Логи репликации не найдены.")
+            await update.message.reply_text(update, "Логи репликации не найдены.")
 
     except Exception as e:
-        await send_result(update, f"Ошибка при получении логов репликации: {e}")
+        await update.message.reply_text(update, f"Ошибка при получении логов репликации: {e}")
 
 async def cancel(update, context):
     await update.message.reply_text("Действие отменено.", reply_markup=ReplyKeyboardRemove())
