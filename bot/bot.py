@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import psycopg2
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler
+import paramiko
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -14,6 +15,11 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_DATABASE = os.getenv("DB_DATABASE")
+
+DB_REPL_HOST = os.getenv("DB_REPL_HOST")
+DB_REPL_PORT = os.getenv("DB_REPL_PORT", "22")
+DB_REPL_USER = os.getenv("DB_REPL_USER")
+DB_REPL_PASSWORD = os.getenv("DB_REPL_PASSWORD")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -188,28 +194,38 @@ async def get_phone_numbers(update, context):
         await update.message.reply_text(f"Ошибка при чтении из БД: {e}")
 
 
-async def get_repl_logs(update, context):
+async def get_repl_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT pg_read_file(
-                (SELECT setting || '/' || (SELECT setting FROM pg_settings WHERE name='log_filename')
-                 FROM pg_settings WHERE name='log_directory'),
-                0, 100000
-            )
-        """)
-        data = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-        lines = [l for l in data.split("\n") if "replication" in l.lower()]
-        result = "\n".join(lines[-20:]) if lines else "Логи репликации не найдены."
-        for i in range(0, len(result), 4000):
-            await update.message.reply_text(result[i:i+4000])
-    except Exception as e:
-        await update.message.reply_text(f"Ошибка при получении логов репликации: {e}")
-        logger.error(f"Ошибка получения логов репликации: {e}")
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+        client.connect(
+            hostname=DB_REPL_HOST,
+            port=int(DB_REPL_PORT),
+            username=DB_REPL_USER,
+            password=DB_REPL_PASSWORD
+        )
+
+        command = "grep -i replication /var/log/postgresql/*.log | tail -20"
+
+        stdin, stdout, stderr = client.exec_command(command)
+
+        logs = stdout.read().decode()
+        error = stderr.read().decode()
+
+        client.close()
+
+        if error:
+            await send_result(update, f"Ошибка:\n{error}")
+            return
+
+        if logs.strip():
+            await send_result(update, logs)
+        else:
+            await send_result(update, "Логи репликации не найдены.")
+
+    except Exception as e:
+        await send_result(update, f"Ошибка при получении логов репликации: {e}")
 
 async def cancel(update, context):
     await update.message.reply_text("Действие отменено.", reply_markup=ReplyKeyboardRemove())

@@ -6,3 +6,5 @@ repl_password: repl_password
 github_repo: "https://github.com/Kweyzzz/TG_BOT_GutyakulovAM.git"
 github_branch: "ansible"
 telegram_token: "8968847541:AAH4RIZfz9_960rC8xhSkInkuEsjm29EQXI"
+ssh_user: ansible
+ssh_password: amal88824
