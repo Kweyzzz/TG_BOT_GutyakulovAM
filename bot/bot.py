@@ -204,7 +204,8 @@ async def get_repl_logs(update, context):
             username=DB_REPL_USER,
             password=DB_REPL_PASSWORD
         )
-        command = "grep -i replication /var/log/postgresql/*.log | tail -n 20"
+        command = ("grep -E 'START_REPLICATION|IDENTIFY_SYSTEM|replication connection authorized|received replication command' "
+    "/var/log/postgresql/*.log | tail -20")
         stdin, stdout, stderr = client.exec_command(command)
         output = stdout.read().decode('utf-8')
         client.close()
